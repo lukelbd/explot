@@ -21,19 +21,19 @@ except ImportError:  # graceful fallback if IceCream isn't installed
 # and keywords so we simply create our own system rather than working
 # with matplotlib's normalize_kwargs and _alias_maps.
 ALIASES = {
-    'hsla': {
-        'hue': ('h',),
-        'saturation': ('s', 'c', 'chroma'),
-        'luminance': ('l',),
-        'alpha': ('a',),
-    },
     'rgba': {
         'red': ('r',),
         'green': ('g',),
         'blue': ('b',),
         'alpha': ('a',),
     },
-    'lines': {  # copied from lines.py but expanded to include plurals
+    'hsla': {
+        'hue': ('h',),
+        'saturation': ('s', 'c', 'chroma'),
+        'luminance': ('l',),
+        'alpha': ('a',),
+    },
+    'line': {  # copied from lines.py but expanded to include plurals
         'antialiased': ('aa',),
         'alpha': ('a', 'alphas'),
         'color': ('c', 'colors'),
@@ -47,11 +47,11 @@ ALIASES = {
         'markeredgewidth': ('mew', 'markeredgewidths'),
         'markerfacecolor': ('mfc', 'markerfacecolors'),
     },
-    'fills': {
+    'lines': {
+        'colors': ('c', 'color', 'ec', 'edgecolor', 'edgecolors'),
         'linewidths': ('lw', 'linewidth'),
         'linestyles': ('ls', 'linestyle'),
-        'colors': ('c', 'color', 'ec', 'edgecolor', 'edgecolors'),
-    }
+    },
 }
 
 
@@ -68,24 +68,62 @@ def _getattr_flexible(obj, attr, default=None):
     return getattr(obj, attr, getattr(obj, '_' + attr, default))
 
 
-def _pop_props(kwargs, *categories):
+def _translate_props(input, output, *categories):
     """
-    Pop out properties from category `category` after accounting for
-    aliases. Return a dictionary of the non-None property values. This
-    modifies the input `kwargs` dictionary in-place.
+    Driver function.
     """
-    props = {}
     for category in categories:
         if category not in ALIASES:
             raise ValueError(f'Invalid alias category {category!r}.')
         for key, aliases in ALIASES[category].items():
             if isinstance(aliases, str):
                 aliases = (aliases,)
-            opts = {alias: kwargs.pop(alias, None) for alias in (key, *aliases)}
+            opts = {alias: input.pop(alias, None) for alias in (key, *aliases)}
             prop = _not_none(**opts)
             if prop is not None:
-                props[key] = prop
-    return props
+                output[key] = prop
+    return output
+
+
+def _translate_kwargs(input, output, *keys, **aliases):
+    """
+    Similar to `_pop_props` but instead aliases are passed by the user
+    and property values are yielded in that order.
+    """
+    aliases.update({key: () for key in keys})
+    for key, aliases in aliases.items():
+        aliases = (aliases,) if isinstance(aliases, str) else aliases
+        opts = {key: input.pop(key, None) for key in (key, *aliases)}
+        output[key] = _not_none(**opts)
+    return output
+
+
+def _pop_kwargs(kwargs, *keys, **aliases):
+    """
+    Pop out input properties and return them in a new dictionary.
+    """
+    return _translate_kwargs(kwargs, {}, *keys, **aliases)
+
+
+def _process_kwargs(kwargs, *keys, **aliases):
+    """
+    Translate input properties and add translated names to the original dictionary.
+    """
+    return _translate_kwargs(kwargs, kwargs, *keys, **aliases)
+
+
+def _pop_props(kwargs, *categories):
+    """
+    Pop out registered properties and return them in a new dictionary.
+    """
+    return _translate_props(kwargs, {}, *categories)
+
+
+def _process_props(kwargs, *categories):
+    """
+    Translate registered properties and add translated names to the original dictionary.
+    """
+    return _translate_props(kwargs, kwargs, *categories)
 
 
 def _not_none(*args, default=None, **kwargs):

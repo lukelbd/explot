@@ -19,6 +19,7 @@ from .internals import (
     _state_context,
     _version,
     _version_mpl,
+    docstring,
     warnings,
 )
 from .utils import units
@@ -1128,6 +1129,7 @@ class Figure(mfigure.Figure):
         self._align_axis_labels(True)
         self._align_super_labels(renderer)
 
+    @docstring.add_snippets
     def colorbar(
         self, mappable, values=None, *, loc='r', width=None, space=None,
         row=None, col=None, rows=None, cols=None, span=None,
@@ -1140,6 +1142,7 @@ class Figure(mfigure.Figure):
 
         Parameters
         ----------
+        %(axes.colorbar_args)s
         loc : str, optional
             The colorbar location. Valid location keys are as follows.
 
@@ -1180,15 +1183,20 @@ class Figure(mfigure.Figure):
 
         Other parameters
         ----------------
-        *args, **kwargs
-            Passed to `~proplot.axes.colorbar_extras`.
+        %(axes.colorbar_kwargs)s
+
+        See also
+        --------
+        proplot.axes.Axes.colorbar
+        matplotlib.figure.Figure.colorbar
         """
         ax = kwargs.pop('ax', None)
         cax = kwargs.pop('cax', None)
 
         # Fill this axes
         if cax is not None:
-            return super().colorbar(mappable, cax=cax, **kwargs)
+            with _state_context(cax, _internal_call=True):  # avoid wrapping pcolor
+                return super().colorbar(mappable, cax=cax, **kwargs)
 
         # Generate axes panel
         if ax is not None:
@@ -1202,6 +1210,7 @@ class Figure(mfigure.Figure):
         )
         return ax.colorbar(mappable, values, loc='fill', **kwargs)
 
+    @docstring.add_snippets
     def legend(
         self, handles=None, labels=None, *, loc='r', width=None, space=None,
         row=None, col=None, rows=None, cols=None, span=None,
@@ -1214,6 +1223,7 @@ class Figure(mfigure.Figure):
 
         Parameters
         ----------
+        %(axes.legend_args)s
         loc : str, optional
             The legend location. Valid location keys are as follows.
 
@@ -1246,8 +1256,12 @@ class Figure(mfigure.Figure):
 
         Other parameters
         ----------------
-        *args, **kwargs
-            Passed to `~proplot.axes.legend_extras`.
+        %(axes.legend_kwargs)s
+
+        See also
+        --------
+        proplot.axes.Axes.legend
+        matplotlib.axes.Axes.legend
         """
         ax = kwargs.pop('ax', None)
 

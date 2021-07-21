@@ -13,7 +13,7 @@ from ..config import rc
 from ..internals import ic  # noqa: F401
 from ..internals import _not_none, docstring, rcsetup, warnings
 from ..utils import units
-from . import base
+from . import plot
 
 __all__ = ['CartesianAxes']
 
@@ -196,7 +196,7 @@ def _parse_rcloc(x, string):  # figures out string location
             return 'neither'
 
 
-class CartesianAxes(base.Axes):
+class CartesianAxes(plot.PlotAxes):
     """
     Axes subclass for plotting in ordinary Cartesian coordinates.
     Adds the `~CartesianAxes.format` method and overrides several existing
@@ -210,6 +210,8 @@ class CartesianAxes(base.Axes):
         See also
         --------
         proplot.ui.subplots
+        proplot.axes.Axes
+        proplot.axes.PlotAxes
         """
         # Impose default formatter
         super().__init__(*args, **kwargs)
@@ -1015,7 +1017,7 @@ class CartesianAxes(base.Axes):
 
         Other parameters
         ----------------
-        %(axes.other)s
+        %(axes.format_other)s
 
         See also
         --------
