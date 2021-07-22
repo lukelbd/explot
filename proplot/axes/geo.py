@@ -3,8 +3,8 @@
 Axes filled with cartographic projections.
 """
 import copy
+import functools
 
-import matplotlib.axes as maxes
 import matplotlib.axis as maxis
 import matplotlib.path as mpath
 import matplotlib.text as mtext
@@ -16,17 +16,16 @@ from .. import crs as pcrs
 from ..config import rc
 from ..internals import ic  # noqa: F401
 from ..internals import _not_none, _version, _version_cartopy, docstring, warnings
-from . import base
-from . import plot as wrap
+from . import plot
 
 try:
     import cartopy.crs as ccrs
     import cartopy.feature as cfeature
     import cartopy.mpl.ticker as cticker
-    from cartopy.mpl.geoaxes import GeoAxes as GeoAxesBase
+    from cartopy.mpl.geoaxes import GeoAxes as _CartopyAxes
 except ModuleNotFoundError:
     cfeature = cticker = ccrs = None
-    GeoAxesBase = object
+    _CartopyAxes = object
 try:
     import mpl_toolkits.basemap as mbasemap
 except ModuleNotFoundError:
@@ -245,7 +244,7 @@ class _LatAxis(_GeoAxis):
         self._latmax = latmax
 
 
-class GeoAxes(base.Axes):
+class GeoAxes(plot.PlotAxes):
     """
     Axes subclass for plotting on cartographic projections.
     Adds the `~GeoAxes.format` method and overrides several existing methods.
@@ -258,6 +257,8 @@ class GeoAxes(base.Axes):
         See also
         --------
         proplot.ui.subplots
+        proplot.axes.Axes
+        proplot.axes.PlotAxes
         proplot.axes.CartopyAxes
         proplot.axes.BasemapAxes
         """
@@ -417,7 +418,7 @@ class GeoAxes(base.Axes):
 
         Other parameters
         ----------------
-        %(axes.other)s
+        %(axes.format_other)s
 
         See also
         --------
@@ -675,7 +676,32 @@ class GeoAxes(base.Axes):
         return array
 
 
-class CartopyAxes(GeoAxes, GeoAxesBase):
+class _MetaCartopyAxes(plot._MetaPlotAxes):
+    """
+    Impose default ``transform=cartopy.crs.PlateCarree()``.
+    """
+    # NOTE: Not all of these appear to be wrapped directly in GeoAxes
+    # but they do accept transform argument.
+    def __new__(cls, name, bases, dct_orig):
+        dct = dct_orig.copy()
+        for attr in (
+            'barbs', 'contour', 'contourf',
+            'fill', 'fill_between', 'fill_betweenx',  # NOTE: not sure if these work
+            'imshow', 'pcolor', 'pcolormesh', 'plot',
+            'quiver', 'scatter', 'streamplot', 'step',
+            'tricontour', 'tricontourf', 'tripcolor',  # NOTE: not sure why these work
+        ):
+            func = dct_orig.get(attr, None)
+            if not callable(func):
+                continue
+            dct[attr] = functools.wraps(func)(
+                lambda self, *args, _func_original=func, transform=None, **kwargs:
+                _func_original(*args, transform=_not_none(transform, ccrs.PlateCarree()), **kwargs)  # noqa: E501
+            )
+        return super().__new__(cls, name, bases, dct_orig)
+
+
+class CartopyAxes(GeoAxes, _CartopyAxes, metaclass=_MetaCartopyAxes):
     """
     Axes subclass for plotting
     `cartopy <https://scitools.org.uk/cartopy/docs/latest/>`__ projections.
@@ -724,6 +750,9 @@ class CartopyAxes(GeoAxes, GeoAxesBase):
 
         See also
         --------
+        proplot.ui.subplots
+        proplot.axes.Axes
+        proplot.axes.PlotAxes
         proplot.axes.GeoAxes
         proplot.constructor.Proj
         """
@@ -1169,107 +1198,36 @@ class CartopyAxes(GeoAxes, GeoAxesBase):
             raise ValueError('Projection must be a cartopy.crs.CRS instance.')
         self._map_projection = map_projection
 
-    if GeoAxesBase is object:
-        # Keep the base.Axes wrappers
-        pass
 
-    else:
-        # Apply text wrapper
-        text = wrap._apply_wrappers(
-            GeoAxesBase.text,
-            wrap.text_extras,
-        )
-
-        # Apply 1D plotting command wrappers
-        plot = wrap._apply_wrappers(
-            GeoAxesBase.plot,
-            wrap.default_transform,
-            wrap.standardize_1d,
-            wrap._plot_extras,
-            wrap.indicate_error,
-            wrap.apply_cycle,
-        )
-        scatter = wrap._apply_wrappers(
-            GeoAxesBase.scatter,
-            wrap.default_transform,
-            wrap.standardize_1d,
-            wrap.scatter_extras,
-            wrap.indicate_error,
-            wrap.apply_cycle,
-        )
-        fill = wrap._apply_wrappers(
-            GeoAxesBase.fill,
-            wrap.default_transform,
-        )
-
-        # Apply 1D plotting command wrappers
-        contour = wrap._apply_wrappers(
-            GeoAxesBase.contour,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        contourf = wrap._apply_wrappers(
-            GeoAxesBase.contourf,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        pcolor = wrap._apply_wrappers(
-            GeoAxesBase.pcolor,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        pcolormesh = wrap._apply_wrappers(
-            GeoAxesBase.pcolormesh,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        quiver = wrap._apply_wrappers(
-            GeoAxesBase.quiver,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        streamplot = wrap._apply_wrappers(
-            GeoAxesBase.streamplot,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        barbs = wrap._apply_wrappers(
-            GeoAxesBase.barbs,
-            wrap.default_transform,
-            wrap.standardize_2d,
-            wrap.apply_cmap,
-        )
-        tripcolor = wrap._apply_wrappers(
-            GeoAxesBase.tripcolor,
-            wrap.default_transform,
-            wrap.apply_cmap,
-        )
-        tricontour = wrap._apply_wrappers(
-            GeoAxesBase.tricontour,
-            wrap.default_transform,
-            wrap.apply_cmap,
-        )
-        tricontourf = wrap._apply_wrappers(
-            GeoAxesBase.tricontourf,
-            wrap.default_transform,
-            wrap.apply_cmap,
-        )
+class _MetaBasemapAxes(plot._MetaPlotAxes):
+    """
+    Avoid recursion inside function calls and impose default ``latlon=True``.
+    """
+    def __new__(cls, name, bases, dct_orig):
+        dct = dct_orig.copy()
+        for attr in (
+            'barbs', 'contour', 'contourf', 'hexbin',
+            'imshow', 'pcolor', 'pcolormesh', 'plot',
+            'quiver', 'scatter', 'streamplot', 'step',
+        ):
+            func = dct_orig.get(attr, None)
+            if not callable(func):
+                continue
+            dct[attr] = functools.wraps(func)(
+                lambda self, *args, _func_original=func, latlon=None, **kwargs:
+                _func_original(*args, latlon=_not_none(latlon, True), **kwargs)
+            )
+        return super().__new__(cls, name, bases, dct)
 
 
-class BasemapAxes(GeoAxes):
+class BasemapAxes(GeoAxes, metaclass=_MetaBasemapAxes):
     """
     Axes subclass for plotting `~mpl_toolkits.basemap` projections. The
     `~mpl_toolkits.basemap.Basemap` instance is added as the
     `~BasemapAxes.projection` attribute, but you do not have to work with it
     directly -- plotting methods like `matplotlib.axes.Axes.plot` and
     `matplotlib.axes.Axes.contour` are redirected to the corresponding methods on
-    the `~mpl_toolkits.basemap.Basemap` instance. Also ``latlon=True`` is passed
+    the `~mpl_toolkits.basemap.Basemap` instance. Also ``latlon=None`` is passed
     to plotting methods by default.
     """
     #: The registered projection name.
@@ -1298,6 +1256,9 @@ class BasemapAxes(GeoAxes):
 
         See also
         --------
+        proplot.ui.subplots
+        proplot.axes.Axes
+        proplot.axes.PlotAxes
         proplot.axes.GeoAxes
         proplot.constructor.Proj
         """
@@ -1551,96 +1512,3 @@ class BasemapAxes(GeoAxes):
         if not isinstance(map_projection, mbasemap.Basemap):
             raise ValueError('Projection must be a basemap.Basemap instance.')
         self._map_projection = map_projection
-
-    # Apply 1D plotting command wrappers
-    plot = wrap._apply_wrappers(
-        maxes.Axes.plot,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_1d,
-        wrap._plot_extras,
-        wrap.indicate_error,
-        wrap.apply_cycle,
-        wrap._basemap_redirect,
-    )
-    scatter = wrap._apply_wrappers(
-        maxes.Axes.scatter,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_1d,
-        wrap.scatter_extras,
-        wrap.indicate_error,
-        wrap.apply_cycle,
-        wrap._basemap_redirect,
-    )
-    hexbin = wrap._apply_wrappers(
-        maxes.Axes.hexbin,
-        wrap._basemap_norecurse,
-        wrap.standardize_1d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-
-    # Apply 2D plotting command wrappers
-    contour = wrap._apply_wrappers(
-        maxes.Axes.contour,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    contourf = wrap._apply_wrappers(
-        maxes.Axes.contourf,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    pcolor = wrap._apply_wrappers(
-        maxes.Axes.pcolor,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    pcolormesh = wrap._apply_wrappers(
-        maxes.Axes.pcolormesh,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    quiver = wrap._apply_wrappers(
-        maxes.Axes.quiver,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    streamplot = wrap._apply_wrappers(
-        maxes.Axes.streamplot,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    barbs = wrap._apply_wrappers(
-        maxes.Axes.barbs,
-        wrap._basemap_norecurse,
-        wrap.default_latlon,
-        wrap.standardize_2d,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )
-    imshow = wrap._apply_wrappers(
-        maxes.Axes.imshow,
-        wrap._basemap_norecurse,
-        wrap.apply_cmap,
-        wrap._basemap_redirect,
-    )

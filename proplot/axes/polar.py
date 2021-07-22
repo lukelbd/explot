@@ -11,12 +11,12 @@ from .. import ticker as pticker
 from ..config import rc
 from ..internals import ic  # noqa: F401
 from ..internals import _not_none, docstring, warnings
-from . import base
+from . import plot
 
 __all__ = ['PolarAxes']
 
 
-class PolarAxes(base.Axes, mproj.PolarAxes):
+class PolarAxes(plot.PlotAxes, mproj.PolarAxes):
     """
     Axes subclass for plotting in polar coordinates. Adds the `~PolarAxes.format`
     method and overrides several existing methods.
@@ -29,6 +29,9 @@ class PolarAxes(base.Axes, mproj.PolarAxes):
         See also
         --------
         proplot.ui.subplots
+        proplot.axes.Axes
+        proplot.axes.PlotAxes
+        matplotlib.projections.PolarAxes
         """
         # Set tick length to zero so azimuthal labels are not too offset
         # Change default radial axis formatter but keep default theta one
@@ -109,7 +112,7 @@ class PolarAxes(base.Axes, mproj.PolarAxes):
 
         Other parameters
         ----------------
-        %(axes.other)s
+        %(axes.format_other)s
 
         See also
         --------

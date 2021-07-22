@@ -3,7 +3,7 @@
 The "3D" axes class.
 """
 from ..config import rc
-from . import base
+from . import plot
 
 try:
     from mpl_toolkits.mplot3d import Axes3D as Axes3DBase
@@ -11,9 +11,9 @@ except ImportError:
     Axes3DBase = object
 
 
-class Axes3D(base.Axes, Axes3DBase):
+class Axes3D(plot.PlotAxes, Axes3DBase):
     """
-    Simple mix-in of `proplot.axes.Axes` with `~mpl_toolkits.mplot3d.Axes3D`.
+    Simple mix-in of `proplot.axes.PlotAxes` with `~mpl_toolkits.mplot3d.Axes3D`.
     """
     #: The registered projection name.
     name = 'proplot_3d'
